@@ -1,0 +1,3 @@
+target/
+# It's a library, so also ignore the lock
+Cargo.lock
