@@ -1,0 +1,20 @@
+[package]
+name = "directories"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Lut99" ]
+description = "A niche little crate that simplifies creating large hardcoded directory structures."
+
+
+[dependencies]
+directories-derive = { path = "../directories-derive", optional = true }
+
+
+[features]
+default = [ "derive" ]
+derive = ["dep:directories-derive"]
+
+
+[dev-dependencies]
+clap = { version = "4.2", features = ["derive"] }
+humanlog = { git = "https://github.com/Lut99/humanlog-rs" }

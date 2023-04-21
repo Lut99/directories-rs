@@ -4,7 +4,7 @@
 //  Created:
 //    20 Apr 2023, 19:07:02
 //  Last edited:
-//    21 Apr 2023, 09:07:18
+//    21 Apr 2023, 19:22:54
 //  Auto updated?
 //    Yes
 // 
@@ -16,3 +16,10 @@
 // Declare the submodules
 pub mod errors;
 pub mod directory;
+
+// Push some of that in the crate namespace
+pub use directory::Directory;
+
+// Use the derive macros
+#[cfg(feature = "derive")]
+pub use directories_derive::*;

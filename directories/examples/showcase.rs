@@ -4,7 +4,7 @@
 //  Created:
 //    20 Apr 2023, 19:08:02
 //  Last edited:
-//    20 Apr 2023, 19:22:24
+//    21 Apr 2023, 19:46:59
 //  Auto updated?
 //    Yes
 // 
@@ -56,8 +56,14 @@ struct TestCasesDir {
     #[file(any)]
     test_files    : Vec<PathBuf>,
     /// A variable list that matches anything else
-    #[path(any)]
+    #[dir(any)]
     rest          : Vec<PathBuf>,
+}
+
+/// Defines the layout of one of these hypothetical test cases.
+#[derive(Debug, Directory)]
+struct TestCaseDir {
+    
 }
 
 

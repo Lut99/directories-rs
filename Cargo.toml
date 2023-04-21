@@ -1,15 +1,7 @@
-[package]
-name = "directories"
-version = "0.1.0"
-edition = "2021"
-authors = [ "Lut99" ]
-description = "A niche little crate that simplifies creating large hardcoded directory structures."
-
-
-[dependencies]
-
-
-
-[dev-dependencies]
-clap = { version = "4.2", features = ["derive"] }
-humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
+[workspace]
+members = [
+    # The main crate
+    "./directories",
+    # The derive crate
+    "./directories-derive",
+]

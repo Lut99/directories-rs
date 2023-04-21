@@ -1,0 +1,16 @@
+[package]
+name = "directories-derive"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Lut99" ]
+description = "The crate that implements the `#[derive(...)]` macro for the `directories` crate."
+
+
+[lib]
+proc-macro = true
+
+
+[dependencies]
+proc-macro-error = "1.0"
+quote = "1.0"
+syn   = { version = "2.0", features = ["derive"] }
