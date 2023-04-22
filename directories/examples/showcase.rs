@@ -4,7 +4,7 @@
 //  Created:
 //    20 Apr 2023, 19:08:02
 //  Last edited:
-//    21 Apr 2023, 19:46:59
+//    22 Apr 2023, 11:15:04
 //  Auto updated?
 //    Yes
 // 
@@ -24,11 +24,15 @@ use directories::Directory;
 /// Defines the directory structure we use for testing.
 #[derive(Debug, Directory)]
 struct RootDir {
+    /// Our own base path.
+    #[this]
+    path : PathBuf,
+
     /// A hardcoded file in this directory
     #[file(path = "Test.txt")]
     test        : PathBuf,
     /// A nested folder with a random name
-    #[dir(path = "HelloWorld")]
+    #[dir(path = "HelloWorld", path = "HelloWorld2")]
     hello_world : HelloWorldDir,
 }
 
@@ -36,6 +40,7 @@ struct RootDir {
 #[derive(Debug, Directory)]
 struct HelloWorldDir {
     /// A hardcoded, nested file
+    #[file]
     nested_test_txt   : PathBuf,
     /// A directory containing variable stuff
     test_cases        : TestCasesDir,
