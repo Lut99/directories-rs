@@ -2,264 +2,84 @@
 //    by Lut99
 // 
 //  Created:
-//    21 Apr 2023, 20:17:21
+//    23 Apr 2023, 10:45:48
 //  Last edited:
-//    22 Apr 2023, 11:16:02
+//    23 Apr 2023, 11:25:53
 //  Auto updated?
 //    Yes
 // 
 //  Description:
-//!   Implements the derive macro for the [`directories::Directory`]
-//!   trait.
+//!   Implements the derivation for the directory.
 // 
 
-use std::path::PathBuf;
+use proc_macro::TokenStream;
+use proc_macro_error::Diagnostic;
+use quote::quote;
+use syn::{Attribute, Data, DataStruct, Generics, Ident};
 
-use proc_macro_error::{Diagnostic, Level};
-use syn::{Attribute, Expr, ExprLit, Field, Lit, Meta, Token};
-use syn::__private::Span;
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned as _;
-
-use enum_debug::EnumDebug;
-
-pub(crate) use crate::errors::DirError as Error;
+pub use crate::errors::{DirectoryError as Error, DirectoryErrorKind as ErrorKind};
 
 
-/***** AUXILLARY STRUCTS *****/
-/// Defines what we need to know about each field in a struct.
-pub(crate) struct DirectoryField {
-    /// The physical field we are referencing
-    pub field : Field,
-    /// The kind-specific other stuff
-    pub kind  : DirectoryFieldKind,
+/***** HELPER FUNCTIONS *****/
+/// Extracts the information we want from the toplevel attributes.
+/// 
+/// # Arguments
+/// - `attrs`: The list of attributes given at toplevel.
+/// 
+/// # Returns
+/// A new [`DirectoryAttributes`] struct that contains the parsed information.
+/// 
+/// # Errors
+/// This function may errors if the attribute tokens were invalid.
+fn parse_toplevel_attrs<'a>(attrs: impl 'a + AsRef<[Attribute]>) -> Result<DirectoryAttributes, Error<'a>> {
+    let _attrs: &[Attribute] = attrs.as_ref();
+
+    /* Nothing to do, as of yet */
+
+    // Done
+    Ok(DirectoryAttributes {})
 }
 
-/// Defines what we need to know about various types of struct fields.
-#[derive(EnumDebug)]
-pub(crate) enum DirectoryFieldKind {
-    /// It's our own base path.
-    This(NestedThis),
-    /// It's a nested directory.
-    Directory(NestedDirectory),
-    /// It's a nested file.
-    File(NestedFile),
-}
-impl DirectoryFieldKind {
-    /// Returns if this DirectoryField is a `Self::This`.
-    #[inline]
-    pub fn is_this(&self) -> bool { matches!(self, Self::This(_)) }
-    /// Provides access to this DirectoryField as if it is a `Self::This`.
-    /// 
-    /// # Returns
-    /// A reference to the internal [`NestedThis`] struct.
-    /// 
-    /// # Panics
-    /// This function panics if we are not a `Self::This`.
-    #[inline]
-    pub fn this(&self) -> &NestedThis { if let Self::This(this) = self { this } else { panic!("Cannot unwrap Self::{} as a Self::This", self.variant()); } }
-    /// Provides mutable access to this DirectoryField as if it is a `Self::This`.
-    /// 
-    /// # Returns
-    /// A mutable reference to the internal [`NestedThis`] struct.
-    /// 
-    /// # Panics
-    /// This function panics if we are not a `Self::This`.
-    #[inline]
-    pub fn this_mut(&mut self) -> &mut NestedThis { if let Self::This(this) = self { this } else { panic!("Cannot unwrap Self::{} as a Self::This", self.variant()); } }
-    /// Consumes this DirectoryField as if it is a `Self::This`.
-    /// 
-    /// # Returns
-    /// The internal [`NestedThis`] struct.
-    /// 
-    /// # Panics
-    /// This function panics if we are not a `Self::This`.
-    #[inline]
-    pub fn into_this(self) -> NestedThis { if let Self::This(this) = self { this } else { panic!("Cannot unwrap Self::{} as a Self::This", self.variant()); } }
 
-    /// Returns if this DirectoryField is a [`NestedDirectory`].
-    #[inline]
-    pub fn is_dir(&self) -> bool { matches!(self, Self::Directory(_)) }
-    /// Provides access to this DirectoryField as if it is a `Self::Directory`.
-    /// 
-    /// # Returns
-    /// A reference to the internal [`NestedDirectory`] struct.
-    /// 
-    /// # Panics
-    /// This function panics if we are not a `Self::Directory`.
-    #[inline]
-    pub fn dir(&self) -> &NestedDirectory { if let Self::Directory(dir) = self { dir } else { panic!("Cannot unwrap Self::{} as a Self::Directory", self.variant()); } }
-    /// Provides mutable access to this DirectoryField as if it is a `Self::Directory`.
-    /// 
-    /// # Returns
-    /// A mutable reference to the internal [`NestedDirectory`] struct.
-    /// 
-    /// # Panics
-    /// This function panics if we are not a `Self::Directory`.
-    #[inline]
-    pub fn dir_mut(&mut self) -> &mut NestedDirectory { if let Self::Directory(dir) = self { dir } else { panic!("Cannot unwrap Self::{} as a Self::Directory", self.variant()); } }
-    /// Consumes this DirectoryField as if it is a `Self::Directory`.
-    /// 
-    /// # Returns
-    /// The internal [`NestedDirectory`] struct.
-    /// 
-    /// # Panics
-    /// This function panics if we are not a `Self::Directory`.
-    #[inline]
-    pub fn into_dir(self) -> NestedDirectory { if let Self::Directory(dir) = self { dir } else { panic!("Cannot unwrap Self::{} as a Self::Directory", self.variant()); } }
 
-    /// Returns if this DirectoryField is a [`NestedFile`].
-    #[inline]
-    pub fn is_file(&self) -> bool { matches!(self, Self::File(_)) }
-    /// Provides access to this DirectoryField as if it is a `Self::File`.
-    /// 
-    /// # Returns
-    /// A reference to the internal [`NestedFile`] struct.
-    /// 
-    /// # Panics
-    /// This function panics if we are not a `Self::File`.
-    #[inline]
-    pub fn file(&self) -> &NestedFile { if let Self::File(file) = self { file } else { panic!("Cannot unwrap Self::{} as a Self::File", self.variant()); } }
-    /// Provides mutable access to this DirectoryField as if it is a `Self::File`.
-    /// 
-    /// # Returns
-    /// A mutable reference to the internal [`NestedFile`] struct.
-    /// 
-    /// # Panics
-    /// This function panics if we are not a `Self::File`.
-    #[inline]
-    pub fn file_mut(&mut self) -> &mut NestedFile { if let Self::File(file) = self { file } else { panic!("Cannot unwrap Self::{} as a Self::File", self.variant()); } }
-    /// Consumes this DirectoryField as if it is a `Self::File`.
-    /// 
-    /// # Returns
-    /// The internal [`NestedFile`] struct.
-    /// 
-    /// # Panics
-    /// This function panics if we are not a `Self::File`.
-    #[inline]
-    pub fn into_file(self) -> NestedFile { if let Self::File(file) = self { file } else { panic!("Cannot unwrap Self::{} as a Self::File", self.variant()); } }
-}
 
-/// Defines what metadata we like to know about a nested this in a Directory struct.
-pub(crate) struct NestedThis {
-    /// The name of the variable.
-    pub name : String,
-}
 
-/// Defines what metadata we like to know about a nested directory in a Directory struct.
-pub(crate) struct NestedDirectory {
-    /// Defines the name of the directory.
-    pub name : String,
-}
-
-/// Defines what metadata we like to know about a nested file in a Directory struct.
-pub(crate) struct NestedFile {}
+/***** HELPER STRUCTS *****/
+/// Defines everything we might learn from toplevel attributes.
+#[derive(Clone, Debug)]
+struct DirectoryAttributes {}
 
 
 
 
 
 /***** LIBRARY *****/
-/// Parses the attribute(s) of a field in a directory structs.
+/// Implements the derivation for the [`directories::Directory`] trait.
 /// 
 /// # Arguments
-/// - `field`: The field itself, which we may use for analysis.
-/// - `attrs`: The list of attributes to parse.
+/// - `ident`: The identifier of the struct/enum/union we are hovering over.
+/// - `data`: The parsed struct/enum/union body.
+/// - `attrs`: Any attributes attached to this struct/enum/union.
+/// - `generics`: Any generics attached to this struct/enum/union.
 /// 
 /// # Returns
-/// A [`DirectoryFieldKind`] struct with the information we parsed.
+/// A TokenStream that contains the derived `impl`s.
 /// 
 /// # Errors
-/// This function may error if we failed to parse the attributes for some reason.
-pub(crate) fn parse_entry_attributes(field: &Field) -> Result<DirectoryFieldKind, Diagnostic> {
-    for a in &field.attrs {
-        match &a.meta {
-            Meta::List(l) => {
-                // Match on which of our attributes we are parsing
-                if l.path.is_ident("this") {
-                    // Assert the field has an identifier
-                    if field.ident.is_none() { return Err(Error::ThisWithoutIdentifier{ span: l.span() }.into()); }
+/// This function may error if it failed to parse the input properly.
+/// 
+/// Note that some non-fatal errors or warnings may be emitted during execution of this function.
+pub fn derive(ident: Ident, data: Data, attrs: Vec<Attribute>, generics: Generics) -> Result<TokenStream, Error<'static>> {
+    // First: let's extract this as a struct
+    let data: DataStruct = match data {
+        Data::Struct(s) => s,
+        Data::Enum(e)   => { return Err(Error::new(e.enum_token.span, ErrorKind::NotAStruct)); },
+        Data::Union(u)  => { return Err(Error::new(u.union_token.span, ErrorKind::NotAStruct)); },
+    };
 
-                    // It's our own thing, so quickly return this.
-                    return Ok(DirectoryFieldKind::This(NestedThis {
-                        name : field.ident.as_ref().map(|i| i.to_string()).unwrap_or_else(String::new),
-                    }));
+    // Next, we can collect any main struct attributes
+    let dir_attrs: DirectoryAttributes = parse_toplevel_attrs(attrs)?;
 
-                } else if l.path.is_ident("dir") {
-                    let mut name: Option<(String, Span)> = None;
-
-                    // Parse whatever the user wrote in there
-                    let nested = match l.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) {
-                        Ok(nested) => nested,
-                        Err(err)   => { return Err(Error::IllegalAttributeSyntax { _span: l.tokens.span(), path: l.path.get_ident().unwrap().to_string(), err }.into()); },
-                    };
-
-                    // Now match what they wrote
-                    for nested_a in nested {
-                        match nested_a {
-                            Meta::List(l) => {
-                                return Err(Error::UnknownDirAttribute{ span: l.span() }.into());
-                            },
-
-                            Meta::NameValue(nv) => {
-                                // Match on the key first
-                                if nv.path.is_ident("path") {
-                                    // Attempt to read the expression as a string literal
-                                    if let Expr::Lit(ExprLit{ lit: Lit::Str(s), .. }) = &nv.value {
-                                        // Emit a warning if we have already set it before
-                                        if let Some((_, span)) = &name {
-                                            Diagnostic::spanned(nv.span(), Level::Warning, "The `path` attribute is set twice".into())
-                                                .span_note(*span, "Previous assignment here".into())
-                                                .emit();
-                                        }
-
-                                        // Set it
-                                        name = Some((s.value(), nv.span()));
-                                    } else {
-                                        return Err(Error::IllegalDirPathValue{ span: nv.value.span() }.into());
-                                    }
-                                } else {
-                                    return Err(Error::UnknownDirNameValue{ span: nv.path.span(), path: nv.path.get_ident().map(|i| i.to_string()) }.into());
-                                }
-                            },
-    
-                            Meta::Path(p) => {
-                                // Match on the identifier used
-                                if p.is_ident("any") {
-                                    /* TODO */
-                                } else if p.is_ident("optional") {
-                                    /* TODO */
-                                } else {
-                                    return Err(Error::UnknownDirAttribute{ span: p.span() }.into());
-                                }
-                            },
-                        }
-                    }
-
-                    // Resolve the name to a default name if not set already
-                    let name: String = match name {
-                        Some((name, _)) => name,
-                        None            => "".into(),
-                    };
-                
-                    // OK, return the attributes
-                    return Ok(DirectoryFieldKind::Directory(NestedDirectory {
-                        name,
-                    }));
-
-                } /* Ignore otherwise */
-            },
-
-            Meta::NameValue(nv) => {
-
-            },
-
-            Meta::Path(p) => {
-
-            },
-        }
-    }
-
-    // Otherwise we can't know what type this field is
-    Err(Error::UntypedField { span: field.span(), name : field.ident.as_ref().map(|i| i.to_string()).unwrap_or("<anonymous>".into()) }.into())
+    // Done
+    Ok(quote!{}.into())
 }
