@@ -8,13 +8,16 @@ description = "A niche little crate that simplifies creating large hardcoded dir
 
 [dependencies]
 directories-derive = { path = "../directories-derive", optional = true }
+log = { version = "0.4", optional = true }
 
 
 [features]
 default = [ "derive" ]
-derive = ["dep:directories-derive"]
+derive = [ "dep:directories-derive" ]
+log = [ "dep:log" ]
 
 
 [dev-dependencies]
 clap = { version = "4.2", features = ["derive"] }
 humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
+log = "0.4"

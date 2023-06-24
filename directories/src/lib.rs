@@ -4,7 +4,7 @@
 //  Created:
 //    20 Apr 2023, 19:07:02
 //  Last edited:
-//    21 Apr 2023, 19:22:54
+//    24 Jun 2023, 14:06:15
 //  Auto updated?
 //    Yes
 // 
@@ -14,11 +14,12 @@
 // 
 
 // Declare the submodules
-pub mod errors;
-pub mod directory;
+mod directory;
+pub mod formatters;
+pub mod std;
 
 // Push some of that in the crate namespace
-pub use directory::Directory;
+pub use directory::{Directory, DirectoryExt, Error};
 
 // Use the derive macros
 #[cfg(feature = "derive")]
