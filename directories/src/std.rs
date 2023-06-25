@@ -4,7 +4,7 @@
 //  Created:
 //    24 Jun 2023, 13:52:10
 //  Last edited:
-//    24 Jun 2023, 14:21:25
+//    25 Jun 2023, 12:06:19
 //  Auto updated?
 //    Yes
 // 
@@ -15,11 +15,11 @@
 
 use std::collections::HashMap;
 use std::fs::{self, DirEntry, ReadDir};
+use std::io::ErrorKind;
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 
 use crate::directory::{Directory, DirectoryExt, Error};
-use crate::formatters::HashMapFormatter;
 
 
 /***** LIBRARY *****/
@@ -37,7 +37,12 @@ impl<T: DirectoryExt> Directory for Dynamic<T> where Error: From<T::Error> {
         let mut result: HashMap<PathBuf, T> = HashMap::new();
         let entries: ReadDir = match fs::read_dir(&base) {
             Ok(entries) => entries,
-            Err(err)    => { return Err(Error::DirRead { path: base, err }); },
+            Err(err) => {
+                // If we failed to read the directory because it does not exist, we conclude no files exist either
+                if err.kind() == ErrorKind::NotFound { return Ok(Dynamic(HashMap::new())); }
+                // Otherwise, error hard
+                return Err(Error::DirRead { path: base, err });
+            },
         };
         for (i, entry) in entries.enumerate() {
             // Unwrap the entry
@@ -62,9 +67,6 @@ impl<T: DirectoryExt> Directory for Dynamic<T> where Error: From<T::Error> {
     }
 }
 impl<T: DirectoryExt> DirectoryExt for Dynamic<T> where Error: From<T::Error> {
-    type Formatter<'s> = HashMapFormatter<'s, T> where T: 's;
-
-
     fn exists(&self) -> bool {
         // Iterate to only check those we found
         let mut exists: bool = true;
@@ -72,10 +74,6 @@ impl<T: DirectoryExt> DirectoryExt for Dynamic<T> where Error: From<T::Error> {
             exists &= nested.exists();
         }
         exists
-    }
-
-    fn display_indented<'s>(&'s self, indent: usize) -> Self::Formatter<'s> {
-        HashMapFormatter { map: &self.0, indent }
     }
 }
 

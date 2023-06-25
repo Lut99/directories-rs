@@ -4,7 +4,7 @@
 //  Created:
 //    20 Apr 2023, 19:07:02
 //  Last edited:
-//    24 Jun 2023, 14:06:15
+//    25 Jun 2023, 10:59:40
 //  Auto updated?
 //    Yes
 // 
@@ -15,7 +15,6 @@
 
 // Declare the submodules
 mod directory;
-pub mod formatters;
 pub mod std;
 
 // Push some of that in the crate namespace

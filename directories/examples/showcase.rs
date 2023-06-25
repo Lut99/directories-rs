@@ -4,7 +4,7 @@
 //  Created:
 //    20 Apr 2023, 19:08:02
 //  Last edited:
-//    24 Jun 2023, 14:03:35
+//    25 Jun 2023, 12:04:14
 //  Auto updated?
 //    Yes
 // 
@@ -26,18 +26,25 @@ use directories::std::Dynamic;
 /***** DIRECTORIES *****/
 /// Defines the directory structure we use for testing.
 #[derive(Debug, Directory)]
+#[directories(ext = "_world:.world")]
 struct RootDir {
+    /// The path of this directory itself.
+    #[this]
+    path : PathBuf,
+
     /// A hardcoded file in this directory
     #[file(path = "Test.txt")]
     test        : PathBuf,
     /// A nested folder with a random name
-    #[dir(path = "HelloWorld", path = "HelloWorld2")]
     hello_world : HelloWorldDir,
 }
 
 /// Defines the layout of the nested "HelloWorld" directory
 #[derive(Debug, Directory)]
 struct HelloWorldDir {
+    #[this]
+    path : PathBuf,
+
     /// A hardcoded, nested file
     nested_test_txt   : PathBuf,
     /// A directory containing variable stuff
@@ -53,10 +60,10 @@ struct TestCasesDir {
     #[file(path = "hardcoded.exe")]
     hardcoded_exe : PathBuf,
     /// A variable directory, which matches any nested file/folder
-    #[dir(path = "/home")]
+    #[dir(flatten)]
     test_cases        : HashMap<PathBuf, TestCaseDir>,
     /// A variable directory, which matches anything only of the given shape
-    #[dir(path = "/home")]
+    #[dir(flatten)]
     test_cases_strict : Dynamic<TestCaseDir>,
 //     /// A variable list of files, which only matches files
 //     #[file(any)]
@@ -105,12 +112,10 @@ fn main() {
         Err(err) => { error!("Failed to initialize root directory: {err}"); std::process::exit(1); },
     };
 
-    // Show the entire thing
-    println!("Directory structure:");
-    println!("{}", root_dir.display());
-
     // Check what we found
+    println!("Path to root directory: {}", root_dir.path.display());
     println!("Path to test file: {}", root_dir.test.display());
+    println!("Path to nested directory: {}", root_dir.hello_world.path.display());
     println!("Path to nested test file: {}", root_dir.hello_world.nested_test_txt.display());
     println!("Path to optional file: {:?}", root_dir.hello_world.optional_file_dat.as_ref().map(|p| p.display().to_string()));
     println!("Path to testcases:");

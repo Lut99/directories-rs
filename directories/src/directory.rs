@@ -4,7 +4,7 @@
 //  Created:
 //    21 Apr 2023, 09:04:29
 //  Last edited:
-//    24 Jun 2023, 14:20:20
+//    25 Jun 2023, 12:05:55
 //  Auto updated?
 //    Yes
 // 
@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::error;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::fs::{self, DirEntry, ReadDir};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 
@@ -66,16 +67,8 @@ impl Directory for PathBuf {
     fn try_init(base: impl Into<PathBuf>) -> Result<Self, Self::Error> { Ok(PathBuf::from(base.into())) }
 }
 impl DirectoryExt for PathBuf {
-    type Formatter<'s> = crate::formatters::PathBufFormatter<'s>;
-
-
     #[inline]
     fn exists(&self) -> bool { <Path>::exists(self) }
-
-    #[inline]
-    fn display_indented<'s>(&'s self, indent: usize) -> Self::Formatter<'s> {
-        crate::formatters::PathBufFormatter { path: self, indent }
-    }
 }
 
 // Default implementation for the [`Option<impl Directory>`] type, which can be used to only instantiate it if it exists.
@@ -92,20 +85,12 @@ impl<T: Directory> Directory for Option<T> {
     }
 }
 impl<T: DirectoryExt> DirectoryExt for Option<T> {
-    type Formatter<'s> = crate::formatters::OptionFormatter<'s, T> where T: 's;
-
-
     fn exists(&self) -> bool {
         match self {
             Some(path) => path.exists(),
             // We mark that it exists because a missing optional path counts as all mandatory paths existing
             None       => true,
         }
-    }
-
-    #[inline]
-    fn display_indented<'s>(&'s self, indent: usize) -> Self::Formatter<'s> {
-        crate::formatters::OptionFormatter { option: self, indent }
     }
 }
 
@@ -120,7 +105,12 @@ impl<T: Directory> Directory for HashMap<PathBuf, T> where Error: From<T::Error>
         let mut result: HashMap<PathBuf, T> = HashMap::new();
         let entries: ReadDir = match fs::read_dir(&base) {
             Ok(entries) => entries,
-            Err(err)    => { return Err(Error::DirRead { path: base, err }); },
+            Err(err) => {
+                // If we failed to read the directory because it does not exist, we conclude no files exist either
+                if err.kind() == ErrorKind::NotFound { return Ok(HashMap::new()); }
+                // Otherwise, error hard
+                return Err(Error::DirRead { path: base, err });
+            },
         };
         for (i, entry) in entries.enumerate() {
             // Unwrap the entry
@@ -142,9 +132,6 @@ impl<T: Directory> Directory for HashMap<PathBuf, T> where Error: From<T::Error>
     }
 }
 impl<T: DirectoryExt> DirectoryExt for HashMap<PathBuf, T> where Error: From<T::Error> {
-    type Formatter<'s> = crate::formatters::HashMapFormatter<'s, T> where T: 's;
-
-
     fn exists(&self) -> bool {
         // Iterate to only check those we found
         let mut exists: bool = true;
@@ -152,11 +139,6 @@ impl<T: DirectoryExt> DirectoryExt for HashMap<PathBuf, T> where Error: From<T::
             exists &= nested.exists();
         }
         exists
-    }
-
-    #[inline]
-    fn display_indented<'s>(&'s self, indent: usize) -> Self::Formatter<'s> {
-        crate::formatters::HashMapFormatter { map: self, indent }
     }
 }
 
@@ -200,36 +182,11 @@ pub trait Directory: Sized {
 
 /// Defines nice, additional things to implement for [`Directory`]s.
 pub trait DirectoryExt: Directory {
-    /// The formatter to use in [`Self::display()`].
-    type Formatter<'s>: Display where Self: 's;
-
-
     /// Returns if all mandatory paths in this directory exist.
     /// 
-    /// In the case of optional paths, we do check if mandatory sub-paths exist if the optional paths exist.
-    /// 
-    /// # Arguments
-    /// - `base`: A [`Path`] that defines the base for any relative paths in this directory.
+    /// In the case of optional paths, we do check if mandatory sub-paths exist if the path itself exists.
     /// 
     /// # Returns
     /// True if they do, false if they don't.
     fn exists(&self) -> bool;
-
-
-
-    /// Returns a formatter that formats the directory with all its paths.
-    /// 
-    /// # Returns
-    /// A formatter implementing [`Display`].
-    #[inline]
-    fn display<'s>(&'s self) -> Self::Formatter<'s> { self.display_indented(0) }
-
-    /// Returns a formatter that formats the directory with all its paths but with a certain indentation.
-    /// 
-    /// # Arguments
-    /// - `indent`: The number of spaces to prefix to each line.
-    /// 
-    /// # Returns
-    /// A formatter implementing [`Display`].
-    fn display_indented<'s>(&'s self, indent: usize) -> Self::Formatter<'s>;
 }
